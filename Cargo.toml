@@ -5,3 +5,12 @@ edition = "2024"
 
 [dependencies]
 bevy = "0.18.1"
+bevy_enhanced_input = "0.24.4"
+
+[profile.dev]
+opt-level = 1
+debug = true
+
+[features]
+default = ["cursor_utils"]
+cursor_utils = []
