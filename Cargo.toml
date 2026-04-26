@@ -2,6 +2,10 @@
 name = "bevy_enhanced_camera"
 version = "0.1.0"
 edition = "2024"
+description = "A minimal camera plugin for Bevy that natively uses bevy_enhanced_input."
+license-file = "LICENSE"
+repository = "https://github.com/jayhwkns/bevy_enhanced_camera"
+homepage = "https://github.com/jayhwkns/bevy_enhanced_camera"
 
 [dependencies]
 bevy = "0.18.1"
