@@ -1,5 +1,8 @@
 //! Demonstrates the physics feature by introducing a plane that the camera
 //! can collide with.
+//!
+//! This example also demonstrates how to make the camera ignore the player's
+//! collider if it has one.
 use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_camera::prelude::*;
@@ -7,6 +10,10 @@ use bevy_enhanced_input::prelude::*;
 
 const MOUSE_SENSITIVITY: f32 = 0.15;
 const CONTROLLER_SENSITIVITY: f32 = 0.9;
+
+// Note that the default physics layer is 0b1, so the camera ignore layer must
+// be different.
+const CAMERA_IGNORE: u32 = 0b10;
 
 fn main() {
     App::new()
@@ -31,7 +38,7 @@ fn setup(
         .spawn((
             Camera3d::default(),
             Transform::from_xyz(-5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            EnhancedCamera::default(),
+            EnhancedCamera::default().which_ignores_physics_layers(CAMERA_IGNORE),
             CameraContext,
             actions!(CameraContext[
                 (
@@ -55,6 +62,8 @@ fn setup(
 
     // cube
     commands.spawn((
+        Collider::cuboid(1.0, 1.0, 1.0),
+        CollisionLayers::new(CAMERA_IGNORE, LayerMask::ALL),
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
         MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
         Transform::from_xyz(0.0, 0.5, 0.0),

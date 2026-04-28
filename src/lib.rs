@@ -39,12 +39,8 @@ pub struct EnhancedCamera {
     pub max_pitch: f32,
     /// Maximum distance to follow target by
     pub follow_dist: f32,
-    /// How large to make the radius of the spherecast that prevents the
-    /// camera from phasing through the environment.
-    ///
-    /// `None` will ignore colliders.
     #[cfg(feature = "physics")]
-    spherecast_radius: Option<f32>,
+    pub physics_config: Option<CameraPhysicsConfig>,
 }
 
 impl Default for EnhancedCamera {
@@ -53,7 +49,55 @@ impl Default for EnhancedCamera {
             max_pitch: 85.0_f32.to_radians(),
             follow_dist: 5.0,
             #[cfg(feature = "physics")]
-            spherecast_radius: Some(0.05),
+            physics_config: Some(CameraPhysicsConfig::default()),
+        }
+    }
+}
+
+#[cfg(feature = "physics")]
+impl EnhancedCamera {
+    /// Returns a camera that with no `physics_config`, which will phase
+    /// through all colliders.
+    pub fn noclip() -> Self {
+        EnhancedCamera {
+            physics_config: None,
+            ..default()
+        }
+    }
+
+    pub fn which_ignores_physics_layers(mut self, layers: impl Into<LayerMask>) -> Self {
+        let Some(ref mut physics_config) = self.physics_config else {
+            warn!(
+                "Attempted to call `which_ignores_physics_layers` on an EnhancedCamera with no physics config"
+            );
+            return self;
+        };
+        physics_config.ignore_layers = layers.into();
+        self
+    }
+}
+
+#[cfg(feature = "physics")]
+pub struct CameraPhysicsConfig {
+    /// How large to make the radius of the spherecast that prevents the
+    /// camera from phasing through the environment.
+    ///
+    /// `None` will ignore colliders.
+    pub spherecast_radius: f32,
+    /// Which layers the camera should ignore and phase through. An object will
+    /// only be ignored if *all* of its layers are ignored here (not just one).
+    ///
+    /// Usually, this should include a layer from the target's `CollisionLayers`
+    /// `membership` field.
+    pub ignore_layers: LayerMask,
+}
+
+#[cfg(feature = "physics")]
+impl Default for CameraPhysicsConfig {
+    fn default() -> Self {
+        CameraPhysicsConfig {
+            spherecast_radius: 0.05,
+            ignore_layers: LayerMask::NONE,
         }
     }
 }
@@ -103,14 +147,17 @@ fn apply_rotation(
 
         // Cast to ensure camera doesn't go through colliders
         #[cfg(feature = "physics")]
-        let new_pos = if let Some(radius) = camera.spherecast_radius {
+        let new_pos = if let Some(physics_config) = &camera.physics_config {
+            let radius = physics_config.spherecast_radius;
+            let ignore_layers = physics_config.ignore_layers;
+
             let shape = Collider::sphere(radius);
             let origin = target_transform.translation;
             let rotation = Quat::default();
             let direction = transform.back();
 
             let config = ShapeCastConfig::from_max_distance(camera.follow_dist - radius);
-            let filter = SpatialQueryFilter::DEFAULT;
+            let filter = SpatialQueryFilter::from_mask(!ignore_layers);
 
             if let Some(first_hit) =
                 spatial_query.cast_shape(&shape, origin, rotation, direction, &config, &filter)
@@ -129,6 +176,8 @@ fn apply_rotation(
 
 /// Re-exports for common use-cases.
 pub mod prelude {
+    #[cfg(feature = "physics")]
+    pub use crate::CameraPhysicsConfig;
     #[cfg(feature = "cursor_utils")]
     pub use crate::cursor_utils::{LockCursor, UnlockCursor};
     pub use crate::{EnhancedCamera, EnhancedCameraPlugin, RotateCamera, TargetOf};
