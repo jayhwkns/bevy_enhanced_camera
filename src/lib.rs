@@ -1,4 +1,6 @@
 #![doc = include_str!("../README.md")]
+#[cfg(feature = "physics")]
+use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
@@ -27,7 +29,7 @@ pub struct TargetOf(pub Entity);
 ///
 /// NOTE: Impl's Deref so entity can be immutably accessed, though I am not
 /// certain that this is the intended way to use one-to-one relationships.
-#[derive(Component, Deref)]
+#[derive(Component)]
 #[relationship_target(relationship = TargetOf)]
 pub struct Targeting(Entity);
 
@@ -37,6 +39,12 @@ pub struct EnhancedCamera {
     pub max_pitch: f32,
     /// Maximum distance to follow target by
     pub follow_dist: f32,
+    /// How large to make the radius of the spherecast that prevents the
+    /// camera from phasing through the environment.
+    ///
+    /// `None` will ignore colliders.
+    #[cfg(feature = "physics")]
+    spherecast_radius: Option<f32>,
 }
 
 impl Default for EnhancedCamera {
@@ -44,6 +52,8 @@ impl Default for EnhancedCamera {
         EnhancedCamera {
             max_pitch: 85.0_f32.to_radians(),
             follow_dist: 5.0,
+            #[cfg(feature = "physics")]
+            spherecast_radius: Some(0.05),
         }
     }
 }
@@ -63,6 +73,7 @@ fn apply_rotation(
     event: On<Fire<RotateCamera>>,
     mut cameras: Query<(Option<&Targeting>, &mut Transform, &EnhancedCamera), Without<TargetOf>>,
     transforms: Query<&Transform, With<TargetOf>>,
+    #[cfg(feature = "physics")] spatial_query: SpatialQuery,
 ) {
     let Ok((target, mut transform, camera)) = cameras.get_mut(event.context) else {
         warn!(
@@ -83,12 +94,36 @@ fn apply_rotation(
 
     // Orbit target
     if let Some(target) = target {
-        let Ok(target_transform) = transforms.get(**target) else {
-            warn!("Camera target entity {} doesn't have transform.", **target);
+        let Ok(target_transform) = transforms.get(target.0) else {
+            warn!("Camera target entity {} doesn't have transform.", target.0);
             return;
         };
-        transform.translation =
-            target_transform.translation + transform.back() * camera.follow_dist;
+
+        let new_pos = target_transform.translation + transform.back() * camera.follow_dist;
+
+        // Cast to ensure camera doesn't go through colliders
+        #[cfg(feature = "physics")]
+        let new_pos = if let Some(radius) = camera.spherecast_radius {
+            let shape = Collider::sphere(radius);
+            let origin = target_transform.translation;
+            let rotation = Quat::default();
+            let direction = transform.back();
+
+            let config = ShapeCastConfig::from_max_distance(camera.follow_dist - radius);
+            let filter = SpatialQueryFilter::DEFAULT;
+
+            if let Some(first_hit) =
+                spatial_query.cast_shape(&shape, origin, rotation, direction, &config, &filter)
+            {
+                origin + transform.back() * first_hit.distance
+            } else {
+                new_pos
+            }
+        } else {
+            new_pos
+        };
+
+        transform.translation = new_pos;
     }
 }
 

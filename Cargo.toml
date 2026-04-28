@@ -8,21 +8,19 @@ repository = "https://github.com/jayhwkns/bevy_enhanced_camera"
 homepage = "https://github.com/jayhwkns/bevy_enhanced_camera"
 
 [dependencies]
-bevy = "0.18.1"
+bevy = { version = "0.18.1", features = ["debug"] }
 bevy_enhanced_input = "0.24.4"
+avian3d = { version = "0.6.1", optional = true }
 
-[dependencies.avian3d]
-version = "0.6.1"
-physics = true # Only enable with physics feature
+[[example]]
+name = "physics"
+required-features = ["physics"]
 
 [profile.dev]
 opt-level = 1
 debug = true
 
 [features]
-default = ["cursor_utils", "physics"]
+default = ["cursor_utils", "physics"] # TODO: Disable physics in default. Only on for development.
 cursor_utils = []
-physics = []
-
-[dev-dependencies]
-avian3d = "0.6.1"
+physics = ["avian3d"]
