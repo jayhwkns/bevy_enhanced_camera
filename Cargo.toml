@@ -8,9 +8,12 @@ repository = "https://github.com/jayhwkns/bevy_enhanced_camera"
 homepage = "https://github.com/jayhwkns/bevy_enhanced_camera"
 
 [dependencies]
-bevy = { version = "0.18.1", features = ["debug"] }
+bevy = { version = "0.18.1", default-features = false }
 bevy_enhanced_input = "0.24.4"
 avian3d = { version = "0.6.1", optional = true }
+
+[dev-dependencies]
+bevy = { version = "0.18.1", features = ["debug"] }
 
 [[example]]
 name = "physics"
