@@ -21,6 +21,6 @@ opt-level = 1
 debug = true
 
 [features]
-default = ["cursor_utils", "physics"] # TODO: Disable physics in default. Only on for development.
+default = ["cursor_utils"]
 cursor_utils = []
 physics = ["avian3d"]

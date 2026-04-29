@@ -1,3 +1,4 @@
+//! Helper functions and config scructs for physics feature.
 use crate::EnhancedCamera;
 use avian3d::prelude::*;
 use bevy::prelude::*;
