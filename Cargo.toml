@@ -1,6 +1,6 @@
 [package]
 name = "bevy_enhanced_camera"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "A minimal camera plugin for Bevy that natively uses bevy_enhanced_input."
 license-file = "LICENSE"
