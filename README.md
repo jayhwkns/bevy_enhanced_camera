@@ -67,3 +67,11 @@ Uses [Avian](https://github.com/avianphysics/avian) to prevent the camera from
 phasing through terrain.
 See physics example in repository for a basic setup.
 Requires `PhysicsPlugins` in app or will panic otherwise.
+
+<img width="498" height="390" alt="bevy_enhanced_camera" src="https://github.com/user-attachments/assets/26288e5f-556c-4106-bed3-d058a543353f" />
+
+## Version Table
+
+| bevy  | bevy_enhanced_camera |
+|-------|----------------------|
+| 0.18  | 0.1-0.2, main        |
