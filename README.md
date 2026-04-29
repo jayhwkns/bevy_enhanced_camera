@@ -9,7 +9,8 @@ instead.
 
 With bevy_enhanced_input, the user is responsible for configuring bindings,
 sensitivity, etc.
-A minimal setup is shown below.
+
+#### Minimal Example
 
 ```rust
 use bevy::prelude::*;
@@ -48,3 +49,21 @@ app.world_mut().spawn((
     TargetOf(camera),
 ));
 ```
+
+## Cargo Features
+
+To keep the core of this crate simple, many features must be manually included
+via your project's `Cargo.toml`.
+
+### Cursor Utils
+
+Included by default.
+Adds `LockCursor` and `UnlockCursor` actions to allow users to
+ergonomically keep the cursor from flying out of the window.
+
+### Physics
+
+Uses [Avian](https://github.com/avianphysics/avian) to prevent the camera from
+phasing through terrain.
+See physics example in repository for a basic setup.
+Requires `PhysicsPlugins` in app or will panic otherwise.

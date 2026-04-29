@@ -1,6 +1,6 @@
 [package]
 name = "bevy_enhanced_camera"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "A minimal camera plugin for Bevy that natively uses bevy_enhanced_input."
 license-file = "LICENSE"
@@ -8,8 +8,13 @@ repository = "https://github.com/jayhwkns/bevy_enhanced_camera"
 homepage = "https://github.com/jayhwkns/bevy_enhanced_camera"
 
 [dependencies]
-bevy = "0.18.1"
+bevy = { version = "0.18.1", features = ["debug"] }
 bevy_enhanced_input = "0.24.4"
+avian3d = { version = "0.6.1", optional = true }
+
+[[example]]
+name = "physics"
+required-features = ["physics"]
 
 [profile.dev]
 opt-level = 1
@@ -18,3 +23,4 @@ debug = true
 [features]
 default = ["cursor_utils"]
 cursor_utils = []
+physics = ["avian3d"]
