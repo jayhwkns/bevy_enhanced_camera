@@ -1,9 +1,6 @@
 #![doc = include_str!("../README.md")]
-#[cfg(feature = "physics")]
-use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
-use bevy_schedule_utils::ScheduleStatePlugin;
 
 #[cfg(feature = "cursor_utils")]
 mod cursor_utils;
@@ -18,24 +15,24 @@ pub struct EnhancedCameraPlugin;
 
 impl Plugin for EnhancedCameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(accumulate_input).add_systems(
+        #[cfg(feature = "physics")]
+        app.add_observer(physics::accumulate_input).add_systems(
             // Run in fixed pre-update so inputs that depend on camera rotation
             // can be accurate to most up-to-date camera angle.
             FixedPreUpdate,
             (
-                apply_rotation,
-                clear_accumulated_input
-                    .run_if(bevy_schedule_utils::fixed_pre_update_ran_this_frame),
+                physics::rotate_move_camera,
+                physics::clear_accumulated_input,
             )
                 .chain(),
         );
 
+        #[cfg(not(feature = "physics"))]
+        app.add_observer(apply_rotation)
+            .add_systems(PreUpdate, move_cameras);
+
         #[cfg(feature = "cursor_utils")]
         app.add_plugins(cursor_utils::CursorUtilsPlugin);
-
-        if !app.is_plugin_added::<ScheduleStatePlugin>() {
-            app.add_plugins(ScheduleStatePlugin);
-        }
     }
 }
 
@@ -52,14 +49,26 @@ pub struct TargetOf(pub Entity);
 #[relationship_target(relationship = TargetOf)]
 pub struct Targeting(Entity);
 
+#[cfg(not(feature = "physics"))]
 #[derive(Component)]
-#[require(AccumulatedCameraInput)]
 pub struct EnhancedCamera {
     /// Maximum pitch (vertical angle) magnitude in **radians**.
     pub max_pitch: f32,
     /// Maximum distance to follow target by
     pub follow_dist: f32,
-    #[cfg(feature = "physics")]
+}
+
+#[cfg(feature = "physics")]
+#[derive(Component)]
+#[require(physics::AccumulatedCameraInput)]
+pub struct EnhancedCamera {
+    /// Maximum pitch (vertical angle) magnitude in **radians**.
+    pub max_pitch: f32,
+    /// Maximum distance to follow target by
+    pub follow_dist: f32,
+    /// Determines how to handle collisions.
+    ///
+    /// Phases through everything when `None`.
     pub physics_config: Option<physics::CameraPhysicsConfig>,
 }
 
@@ -78,88 +87,56 @@ impl Default for EnhancedCamera {
 #[action_output(Vec2)]
 pub struct RotateCamera;
 
-#[derive(Component, Default)]
-struct AccumulatedCameraInput(Vec2);
-
-fn accumulate_input(
+/// Applies rotation input to camera.
+#[cfg(not(feature = "physics"))]
+fn apply_rotation(
     event: On<Fire<RotateCamera>>,
-    mut accumulated_inputs: Query<&mut AccumulatedCameraInput>,
+    mut cameras: Query<(&mut Transform, &EnhancedCamera, Option<&Targeting>), Without<TargetOf>>,
+    transforms: Query<&GlobalTransform, Without<EnhancedCamera>>,
 ) {
-    let Ok(mut acc) = accumulated_inputs.get_mut(event.context) else {
-        warn!("RotateCamera event fired on an entity without EnhancedCamera");
+    let Ok((mut transform, camera, target)) = cameras.get_mut(event.context) else {
+        warn!(
+            "RotateCamera fired by entity {}, who is not valid in observer's query.",
+            event.context
+        );
         return;
     };
-    acc.0 += event.value;
+
+    let (mut yaw, mut pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
+
+    let delta_rotation = event.value; // in degrees
+    yaw += -delta_rotation.x.to_radians();
+    pitch += -delta_rotation.y.to_radians();
+    pitch = pitch.clamp(-camera.max_pitch, camera.max_pitch);
+
+    transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
+
+    // Sync rotation
+    let Some(target) = target else {
+        return;
+    };
+    let Ok(target_transform) = transforms.get(target.0) else {
+        warn!("Camera target entity {} doesn't have transform.", target.0);
+        return;
+    };
+
+    transform.translation = target_transform.translation() + transform.back() * camera.follow_dist;
 }
 
-fn clear_accumulated_input(accumulated_inputs: Query<&mut AccumulatedCameraInput>) {
-    for mut acc in accumulated_inputs {
-        acc.0 = Vec2::ZERO;
-    }
-}
-
-/// Responds to camera rotation input by rotating camera.
-///
-/// Is not responsible for handling sensitivity or scaling with delta time,
-/// that should be done by input modifiers from bevy_enhanced_input.
-///
-/// References:
-/// - [Bevy Ahoy](https://github.com/janhohenheim/bevy_ahoy/blob/main/src/camera.rs)
-fn apply_rotation(
-    cameras: Query<(
-        Option<&Targeting>,
-        &mut Transform,
-        &EnhancedCamera,
-        &AccumulatedCameraInput,
-    )>,
-    transforms: Query<&GlobalTransform>,
-    #[cfg(feature = "physics")] spatial_query: SpatialQuery,
+/// Repositions camera around target
+#[cfg(not(feature = "physics"))]
+fn move_cameras(
+    cameras: Query<(&Targeting, &mut Transform, &EnhancedCamera)>,
+    transforms: Query<&GlobalTransform, Without<EnhancedCamera>>,
 ) {
-    for (target, mut transform, camera, accumulated_input) in cameras {
-        let (mut yaw, mut pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
+    for (target, mut transform, camera) in cameras {
+        let Ok(target_transform) = transforms.get(target.0) else {
+            warn!("Camera target entity {} doesn't have transform.", target.0);
+            return;
+        };
 
-        yaw += -accumulated_input.0.x.to_radians();
-        pitch += -accumulated_input.0.y.to_radians();
-        pitch = pitch.clamp(-camera.max_pitch, camera.max_pitch);
-
-        transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
-
-        // Orbit target
-        if let Some(target) = target {
-            let Ok(target_transform) = transforms.get(target.0) else {
-                warn!("Camera target entity {} doesn't have transform.", target.0);
-                return;
-            };
-
-            let new_pos = target_transform.translation() + transform.back() * camera.follow_dist;
-
-            // Cast to ensure camera doesn't go through colliders
-            #[cfg(feature = "physics")]
-            let new_pos = if let Some(physics_config) = &camera.physics_config {
-                let radius = physics_config.spherecast_radius;
-                let ignore_layers = physics_config.ignore_layers;
-
-                let shape = Collider::sphere(radius);
-                let origin = target_transform.translation();
-                let rotation = Quat::default();
-                let direction = transform.back();
-
-                let config = ShapeCastConfig::from_max_distance(camera.follow_dist - radius);
-                let filter = SpatialQueryFilter::from_mask(!ignore_layers);
-
-                if let Some(first_hit) =
-                    spatial_query.cast_shape(&shape, origin, rotation, direction, &config, &filter)
-                {
-                    origin + transform.back() * first_hit.distance
-                } else {
-                    new_pos
-                }
-            } else {
-                new_pos
-            };
-
-            transform.translation = new_pos;
-        }
+        transform.translation =
+            target_transform.translation() + transform.back() * camera.follow_dist;
     }
 }
 

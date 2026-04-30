@@ -1,5 +1,7 @@
 //! Demonstrates how to use a child entity as a target to offset a
 //! third-person camera.
+#[cfg(feature = "physics")]
+use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_camera::prelude::*;
 use bevy_enhanced_input::prelude::*;
@@ -10,14 +12,25 @@ const CONTROLLER_SENSITIVITY: f32 = 0.9;
 const OFFSET: Vec3 = Vec3::new(0.0, 0.5, 1.0);
 
 fn main() {
-    App::new()
-        .add_plugins((DefaultPlugins, EnhancedInputPlugin, EnhancedCameraPlugin))
+    let mut app = App::new();
+
+    app.add_plugins((DefaultPlugins, EnhancedInputPlugin, EnhancedCameraPlugin))
         .add_input_context::<CameraContext>()
-        .add_systems(Startup, setup)
-        // Run "player physics" in fixed timestep. This may be lower than
-        // framerate, but doesn't require interpolation.
-        .add_systems(FixedUpdate, move_player)
-        .run();
+        .add_systems(Startup, setup);
+
+    // When physics is disabled, camera rotation is immediately handled on
+    // input and movement occurs on update, so motion will be smooth if player
+    // is moved on update.
+    #[cfg(not(feature = "physics"))]
+    app.add_systems(Update, move_player);
+
+    // When physics is enabled, the player should be moved in a fixed timestep
+    // or else motion will appear jagged.
+    #[cfg(feature = "physics")]
+    app.add_plugins(PhysicsPlugins::default())
+        .add_systems(FixedUpdate, move_player);
+
+    app.run();
 }
 
 fn setup(
@@ -25,7 +38,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // camera
     let camera = commands
         .spawn((
             Camera3d::default(),
@@ -52,7 +64,6 @@ fn setup(
         ))
         .id();
 
-    // cube
     let cube = commands
         .spawn((
             Player,

@@ -68,6 +68,17 @@ phasing through terrain.
 See physics example in repository for a basic setup.
 Requires `PhysicsPlugins` in app or will panic otherwise.
 
+#### Fixed Timestep
+
+If you notice that the gameplay's motion appears very jagged, you may be
+running the target's movement system in `Update` (or similar) while the
+camera is updated on `FixedPreUpdate` when the physics feature is enabled.
+
+The weakness of this is that `Time<Fixed>` is 64 Hz by default, so if the game
+is running above 64fps, the character and camera will move less smoothly than
+the game's framerate and the displayed transforms might be slightly inaccurate
+without interpolation (which has not been implemented yet).
+
 <img width="498" height="390" alt="bevy_enhanced_camera" src="https://github.com/user-attachments/assets/26288e5f-556c-4106-bed3-d058a543353f" />
 
 ## Version Table

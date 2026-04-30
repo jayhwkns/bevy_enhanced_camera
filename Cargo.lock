@@ -778,7 +778,6 @@ dependencies = [
  "avian3d",
  "bevy",
  "bevy_enhanced_input",
- "bevy_schedule_utils",
 ]
 
 [[package]]
@@ -1417,15 +1416,6 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "uuid",
-]
-
-[[package]]
-name = "bevy_schedule_utils"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2636d062cc63c26d529bad1de6926ebe797f22cb71125a7b8e17aae9917a6141"
-dependencies = [
- "bevy",
 ]
 
 [[package]]
