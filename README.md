@@ -68,6 +68,9 @@ phasing through terrain.
 See physics example in repository for a basic setup.
 Requires `PhysicsPlugins` in app or will panic otherwise.
 
+If you are using this crate for a first-person camera, it is best to leave
+physics disabled and let your character controller handle collisions.
+
 #### Fixed Timestep
 
 If you notice that the gameplay's motion appears very jagged, you may be
@@ -79,10 +82,14 @@ is running above 64fps, the character and camera will move less smoothly than
 the game's framerate and the displayed transforms might be slightly inaccurate
 without interpolation (which has not been implemented yet).
 
+Currently, there is no way to have a physical third-person camera running in a
+fixed timestep and a non-physical first-person camera running on update, though
+it is a planned feature.
+
 <img width="498" height="390" alt="bevy_enhanced_camera" src="https://github.com/user-attachments/assets/26288e5f-556c-4106-bed3-d058a543353f" />
 
 ## Version Table
 
 | bevy  | bevy_enhanced_camera |
 |-------|----------------------|
-| 0.18  | 0.1-0.2, main        |
+| 0.18  | 0.1-0.3, main        |
