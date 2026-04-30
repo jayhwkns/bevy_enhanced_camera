@@ -71,7 +71,7 @@ pub struct RotateCamera;
 fn apply_rotation(
     event: On<Fire<RotateCamera>>,
     mut cameras: Query<(Option<&Targeting>, &mut Transform, &EnhancedCamera), Without<TargetOf>>,
-    transforms: Query<&Transform, With<TargetOf>>,
+    transforms: Query<&GlobalTransform, With<TargetOf>>,
     #[cfg(feature = "physics")] spatial_query: SpatialQuery,
 ) {
     let Ok((target, mut transform, camera)) = cameras.get_mut(event.context) else {
@@ -98,7 +98,7 @@ fn apply_rotation(
             return;
         };
 
-        let new_pos = target_transform.translation + transform.back() * camera.follow_dist;
+        let new_pos = target_transform.translation() + transform.back() * camera.follow_dist;
 
         // Cast to ensure camera doesn't go through colliders
         #[cfg(feature = "physics")]
@@ -107,7 +107,7 @@ fn apply_rotation(
             let ignore_layers = physics_config.ignore_layers;
 
             let shape = Collider::sphere(radius);
-            let origin = target_transform.translation;
+            let origin = target_transform.translation();
             let rotation = Quat::default();
             let direction = transform.back();
 
