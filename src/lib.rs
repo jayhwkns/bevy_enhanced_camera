@@ -3,6 +3,7 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
+use bevy_schedule_utils::ScheduleStatePlugin;
 
 #[cfg(feature = "cursor_utils")]
 mod cursor_utils;
@@ -17,9 +18,24 @@ pub struct EnhancedCameraPlugin;
 
 impl Plugin for EnhancedCameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(apply_rotation);
+        app.add_observer(accumulate_input).add_systems(
+            // Run in fixed pre-update so inputs that depend on camera rotation
+            // can be accurate to most up-to-date camera angle.
+            FixedPreUpdate,
+            (
+                apply_rotation,
+                clear_accumulated_input
+                    .run_if(bevy_schedule_utils::fixed_pre_update_ran_this_frame),
+            )
+                .chain(),
+        );
+
         #[cfg(feature = "cursor_utils")]
         app.add_plugins(cursor_utils::CursorUtilsPlugin);
+
+        if !app.is_plugin_added::<ScheduleStatePlugin>() {
+            app.add_plugins(ScheduleStatePlugin);
+        }
     }
 }
 
@@ -37,6 +53,7 @@ pub struct TargetOf(pub Entity);
 pub struct Targeting(Entity);
 
 #[derive(Component)]
+#[require(AccumulatedCameraInput)]
 pub struct EnhancedCamera {
     /// Maximum pitch (vertical angle) magnitude in **radians**.
     pub max_pitch: f32,
@@ -61,6 +78,26 @@ impl Default for EnhancedCamera {
 #[action_output(Vec2)]
 pub struct RotateCamera;
 
+#[derive(Component, Default)]
+struct AccumulatedCameraInput(Vec2);
+
+fn accumulate_input(
+    event: On<Fire<RotateCamera>>,
+    mut accumulated_inputs: Query<&mut AccumulatedCameraInput>,
+) {
+    let Ok(mut acc) = accumulated_inputs.get_mut(event.context) else {
+        warn!("RotateCamera event fired on an entity without EnhancedCamera");
+        return;
+    };
+    acc.0 += event.value;
+}
+
+fn clear_accumulated_input(accumulated_inputs: Query<&mut AccumulatedCameraInput>) {
+    for mut acc in accumulated_inputs {
+        acc.0 = Vec2::ZERO;
+    }
+}
+
 /// Responds to camera rotation input by rotating camera.
 ///
 /// Is not responsible for handling sensitivity or scaling with delta time,
@@ -69,63 +106,60 @@ pub struct RotateCamera;
 /// References:
 /// - [Bevy Ahoy](https://github.com/janhohenheim/bevy_ahoy/blob/main/src/camera.rs)
 fn apply_rotation(
-    event: On<Fire<RotateCamera>>,
-    mut cameras: Query<(Option<&Targeting>, &mut Transform, &EnhancedCamera)>,
+    cameras: Query<(
+        Option<&Targeting>,
+        &mut Transform,
+        &EnhancedCamera,
+        &AccumulatedCameraInput,
+    )>,
     transforms: Query<&GlobalTransform>,
     #[cfg(feature = "physics")] spatial_query: SpatialQuery,
 ) {
-    let Ok((target, mut transform, camera)) = cameras.get_mut(event.context) else {
-        warn!(
-            "RotateCamera fired by entity {}, who is not valid in observer's query.",
-            event.context
-        );
-        return;
-    };
+    for (target, mut transform, camera, accumulated_input) in cameras {
+        let (mut yaw, mut pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
 
-    let (mut yaw, mut pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
+        yaw += -accumulated_input.0.x.to_radians();
+        pitch += -accumulated_input.0.y.to_radians();
+        pitch = pitch.clamp(-camera.max_pitch, camera.max_pitch);
 
-    let delta_rotation = event.value; // in degrees
-    yaw += -delta_rotation.x.to_radians();
-    pitch += -delta_rotation.y.to_radians();
-    pitch = pitch.clamp(-camera.max_pitch, camera.max_pitch);
+        transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
 
-    transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
+        // Orbit target
+        if let Some(target) = target {
+            let Ok(target_transform) = transforms.get(target.0) else {
+                warn!("Camera target entity {} doesn't have transform.", target.0);
+                return;
+            };
 
-    // Orbit target
-    if let Some(target) = target {
-        let Ok(target_transform) = transforms.get(target.0) else {
-            warn!("Camera target entity {} doesn't have transform.", target.0);
-            return;
-        };
+            let new_pos = target_transform.translation() + transform.back() * camera.follow_dist;
 
-        let new_pos = target_transform.translation() + transform.back() * camera.follow_dist;
+            // Cast to ensure camera doesn't go through colliders
+            #[cfg(feature = "physics")]
+            let new_pos = if let Some(physics_config) = &camera.physics_config {
+                let radius = physics_config.spherecast_radius;
+                let ignore_layers = physics_config.ignore_layers;
 
-        // Cast to ensure camera doesn't go through colliders
-        #[cfg(feature = "physics")]
-        let new_pos = if let Some(physics_config) = &camera.physics_config {
-            let radius = physics_config.spherecast_radius;
-            let ignore_layers = physics_config.ignore_layers;
+                let shape = Collider::sphere(radius);
+                let origin = target_transform.translation();
+                let rotation = Quat::default();
+                let direction = transform.back();
 
-            let shape = Collider::sphere(radius);
-            let origin = target_transform.translation();
-            let rotation = Quat::default();
-            let direction = transform.back();
+                let config = ShapeCastConfig::from_max_distance(camera.follow_dist - radius);
+                let filter = SpatialQueryFilter::from_mask(!ignore_layers);
 
-            let config = ShapeCastConfig::from_max_distance(camera.follow_dist - radius);
-            let filter = SpatialQueryFilter::from_mask(!ignore_layers);
-
-            if let Some(first_hit) =
-                spatial_query.cast_shape(&shape, origin, rotation, direction, &config, &filter)
-            {
-                origin + transform.back() * first_hit.distance
+                if let Some(first_hit) =
+                    spatial_query.cast_shape(&shape, origin, rotation, direction, &config, &filter)
+                {
+                    origin + transform.back() * first_hit.distance
+                } else {
+                    new_pos
+                }
             } else {
                 new_pos
-            }
-        } else {
-            new_pos
-        };
+            };
 
-        transform.translation = new_pos;
+            transform.translation = new_pos;
+        }
     }
 }
 
