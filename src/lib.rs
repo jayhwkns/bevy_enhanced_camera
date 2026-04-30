@@ -70,8 +70,8 @@ pub struct RotateCamera;
 /// - [Bevy Ahoy](https://github.com/janhohenheim/bevy_ahoy/blob/main/src/camera.rs)
 fn apply_rotation(
     event: On<Fire<RotateCamera>>,
-    mut cameras: Query<(Option<&Targeting>, &mut Transform, &EnhancedCamera), Without<TargetOf>>,
-    transforms: Query<&GlobalTransform, With<TargetOf>>,
+    mut cameras: Query<(Option<&Targeting>, &mut Transform, &EnhancedCamera)>,
+    transforms: Query<&GlobalTransform>,
     #[cfg(feature = "physics")] spatial_query: SpatialQuery,
 ) {
     let Ok((target, mut transform, camera)) = cameras.get_mut(event.context) else {
