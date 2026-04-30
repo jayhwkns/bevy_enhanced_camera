@@ -1,9 +1,11 @@
 [package]
 name = "bevy_enhanced_camera"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
-description = "A minimal camera plugin for Bevy that natively uses bevy_enhanced_input."
-license-file = "LICENSE"
+description = "Minimal camera controller plugin for Bevy that natively uses bevy_enhanced_input"
+license = "MIT"
+keywords = ["bevy", "camera"]
+categories = ["game-development"]
 repository = "https://github.com/jayhwkns/bevy_enhanced_camera"
 homepage = "https://github.com/jayhwkns/bevy_enhanced_camera"
 
