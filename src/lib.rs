@@ -26,7 +26,7 @@ impl Plugin for EnhancedCameraPlugin {
     }
 }
 
-/// Entity targetted by camera.
+/// Entity targeted by camera.
 #[derive(Component)]
 #[relationship(relationship_target = Targeting)]
 pub struct TargetOf(pub Entity);
