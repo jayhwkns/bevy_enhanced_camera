@@ -137,7 +137,12 @@ fn orbit_pos(
     #[cfg(feature = "physics")] spatial_query: &SpatialQuery,
 ) -> Vec3 {
     let back = camera_transform.back();
-    let mut new_pos = target_translation + back * camera.follow_dist;
+    let new_pos = target_translation + back * camera.follow_dist;
+
+    // TODO: find a better way to seperate physical and non-physical
+    // implementation.
+    #[cfg(not(feature = "physics"))]
+    return new_pos;
 
     #[cfg(feature = "physics")]
     {
@@ -157,11 +162,11 @@ fn orbit_pos(
         if let Some(first_hit) =
             spatial_query.cast_shape(&shape, origin, rotation, direction, &config, &filter)
         {
-            new_pos = origin + back * first_hit.distance
+            return origin + back * first_hit.distance;
+        } else {
+            return new_pos;
         }
     }
-
-    new_pos
 }
 
 /// Re-exports for common use-cases.
