@@ -2,6 +2,9 @@
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
+#[cfg(feature = "physics")]
+use avian3d::prelude::*;
+
 #[cfg(feature = "cursor_utils")]
 mod cursor_utils;
 
@@ -15,19 +18,6 @@ pub struct EnhancedCameraPlugin;
 
 impl Plugin for EnhancedCameraPlugin {
     fn build(&self, app: &mut App) {
-        #[cfg(feature = "physics")]
-        app.add_observer(physics::accumulate_input).add_systems(
-            // Run in fixed pre-update so inputs that depend on camera rotation
-            // can be accurate to most up-to-date camera angle.
-            FixedPreUpdate,
-            (
-                physics::rotate_move_camera,
-                physics::clear_accumulated_input,
-            )
-                .chain(),
-        );
-
-        #[cfg(not(feature = "physics"))]
         app.add_observer(apply_rotation)
             .add_systems(PreUpdate, move_cameras);
 
@@ -36,31 +26,17 @@ impl Plugin for EnhancedCameraPlugin {
     }
 }
 
-/// Entity targetted by camera.
+/// Entity targeted by camera.
 #[derive(Component)]
 #[relationship(relationship_target = Targeting)]
 pub struct TargetOf(pub Entity);
 
 /// Container for camera target
-///
-/// NOTE: Impl's Deref so entity can be immutably accessed, though I am not
-/// certain that this is the intended way to use one-to-one relationships.
 #[derive(Component)]
 #[relationship_target(relationship = TargetOf)]
 pub struct Targeting(Entity);
 
-#[cfg(not(feature = "physics"))]
 #[derive(Component)]
-pub struct EnhancedCamera {
-    /// Maximum pitch (vertical angle) magnitude in **radians**.
-    pub max_pitch: f32,
-    /// Maximum distance to follow target by
-    pub follow_dist: f32,
-}
-
-#[cfg(feature = "physics")]
-#[derive(Component)]
-#[require(physics::AccumulatedCameraInput)]
 pub struct EnhancedCamera {
     /// Maximum pitch (vertical angle) magnitude in **radians**.
     pub max_pitch: f32,
@@ -69,6 +45,7 @@ pub struct EnhancedCamera {
     /// Determines how to handle collisions.
     ///
     /// Phases through everything when `None`.
+    #[cfg(feature = "physics")]
     pub physics_config: Option<physics::CameraPhysicsConfig>,
 }
 
@@ -88,11 +65,11 @@ impl Default for EnhancedCamera {
 pub struct RotateCamera;
 
 /// Applies rotation input to camera.
-#[cfg(not(feature = "physics"))]
 fn apply_rotation(
     event: On<Fire<RotateCamera>>,
     mut cameras: Query<(&mut Transform, &EnhancedCamera, Option<&Targeting>), Without<TargetOf>>,
     transforms: Query<&GlobalTransform, Without<EnhancedCamera>>,
+    #[cfg(feature = "physics")] spatial_query: SpatialQuery,
 ) {
     let Ok((mut transform, camera, target)) = cameras.get_mut(event.context) else {
         warn!(
@@ -120,24 +97,71 @@ fn apply_rotation(
         return;
     };
 
-    transform.translation = target_transform.translation() + transform.back() * camera.follow_dist;
+    transform.translation = orbit_pos(
+        camera,
+        &transform,
+        target_transform.translation(),
+        #[cfg(feature = "physics")]
+        &spatial_query,
+    );
 }
 
 /// Repositions camera around target
-#[cfg(not(feature = "physics"))]
 fn move_cameras(
     cameras: Query<(&Targeting, &mut Transform, &EnhancedCamera)>,
     transforms: Query<&GlobalTransform, Without<EnhancedCamera>>,
+    #[cfg(feature = "physics")] spatial_query: SpatialQuery,
 ) {
     for (target, mut transform, camera) in cameras {
         let Ok(target_transform) = transforms.get(target.0) else {
             warn!("Camera target entity {} doesn't have transform.", target.0);
-            return;
+            continue;
         };
-
-        transform.translation =
-            target_transform.translation() + transform.back() * camera.follow_dist;
+        transform.translation = orbit_pos(
+            camera,
+            &transform,
+            target_transform.translation(),
+            #[cfg(feature = "physics")]
+            &spatial_query,
+        );
     }
+}
+
+/// Calculates the orbital position of a camera around its target.
+///
+/// Handles collisions when physics is enabled.
+fn orbit_pos(
+    camera: &EnhancedCamera,
+    camera_transform: &Transform,
+    target_translation: Vec3,
+    #[cfg(feature = "physics")] spatial_query: &SpatialQuery,
+) -> Vec3 {
+    let back = camera_transform.back();
+    let mut new_pos = target_translation + back * camera.follow_dist;
+
+    #[cfg(feature = "physics")]
+    {
+        let Some(physics_config) = &camera.physics_config else {
+            return new_pos;
+        };
+        let radius = physics_config.spherecast_radius;
+        let ignore_layers = physics_config.ignore_layers;
+
+        let shape = Collider::sphere(radius);
+        let origin = target_translation;
+        let rotation = Quat::default();
+        let direction = back;
+
+        let config = ShapeCastConfig::from_max_distance(camera.follow_dist - radius);
+        let filter = SpatialQueryFilter::from_mask(!ignore_layers);
+        if let Some(first_hit) =
+            spatial_query.cast_shape(&shape, origin, rotation, direction, &config, &filter)
+        {
+            new_pos = origin + back * first_hit.distance
+        }
+    }
+
+    new_pos
 }
 
 /// Re-exports for common use-cases.

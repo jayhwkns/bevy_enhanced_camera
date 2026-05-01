@@ -21,14 +21,12 @@ fn main() {
     // When physics is disabled, camera rotation is immediately handled on
     // input and movement occurs on update, so motion will be smooth if player
     // is moved on update.
-    #[cfg(not(feature = "physics"))]
     app.add_systems(Update, move_player);
 
     // When physics is enabled, the player should be moved in a fixed timestep
     // or else motion will appear jagged.
     #[cfg(feature = "physics")]
-    app.add_plugins(PhysicsPlugins::default())
-        .add_systems(FixedUpdate, move_player);
+    app.add_plugins(PhysicsPlugins::default());
 
     app.run();
 }
