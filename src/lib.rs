@@ -42,9 +42,6 @@ impl Plugin for EnhancedCameraPlugin {
 pub struct TargetOf(pub Entity);
 
 /// Container for camera target
-///
-/// NOTE: Impl's Deref so entity can be immutably accessed, though I am not
-/// certain that this is the intended way to use one-to-one relationships.
 #[derive(Component)]
 #[relationship_target(relationship = TargetOf)]
 pub struct Targeting(Entity);
