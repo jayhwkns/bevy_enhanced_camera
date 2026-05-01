@@ -1,6 +1,6 @@
 [package]
 name = "bevy_enhanced_camera"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 description = "Minimal camera controller plugin for Bevy that natively uses bevy_enhanced_input"
 license = "MIT"
