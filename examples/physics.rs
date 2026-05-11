@@ -9,7 +9,7 @@ use bevy_enhanced_camera::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
 const MOUSE_SENSITIVITY: f32 = 0.15;
-const CONTROLLER_SENSITIVITY: f32 = 0.9;
+const CONTROLLER_SENSITIVITY: f32 = 100.0;
 
 // Note that the default physics layer is 0b1, so the camera ignore layer must
 // be different.
@@ -45,7 +45,12 @@ fn setup(
                     Action::<RotateCamera>::new(),
                     Bindings::spawn((
                         Spawn((Binding::mouse_motion(), Scale::splat(MOUSE_SENSITIVITY))),
-                        Axial::right_stick().with((Scale::splat(CONTROLLER_SENSITIVITY), DeadZone::default(), Negate::y()))
+                        Axial::right_stick().with((
+                            DeadZone::default(),
+                            Scale::splat(CONTROLLER_SENSITIVITY),
+                            Negate::y(),
+                            DeltaScale::default(),
+                        )),
                     )),
                 ),
                 (
