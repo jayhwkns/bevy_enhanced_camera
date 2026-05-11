@@ -19,6 +19,7 @@ avian3d = { version = "0.6.1", optional = true }
 
 [dev-dependencies]
 bevy = { version = "0.18.1", features = ["debug"] }
+bevy_framepace = "0.21.0"
 
 [[example]]
 name = "physics"
