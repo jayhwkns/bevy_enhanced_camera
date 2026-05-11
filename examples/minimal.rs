@@ -4,7 +4,8 @@ use bevy_enhanced_camera::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
 const MOUSE_SENSITIVITY: f32 = 0.15;
-const CONTROLLER_SENSITIVITY: f32 = 0.9;
+// Controller sensitivity will be much higher due to delta scale
+const CONTROLLER_SENSITIVITY: f32 = 100.0;
 
 fn main() {
     App::new()
@@ -31,7 +32,17 @@ fn setup(
                     Action::<RotateCamera>::new(),
                     Bindings::spawn((
                         Spawn((Binding::mouse_motion(), Scale::splat(MOUSE_SENSITIVITY))),
-                        Axial::right_stick().with((Scale::splat(CONTROLLER_SENSITIVITY), DeadZone::default(), Negate::y()))
+                        // Sticks require some special handling.
+                        Axial::right_stick().with((
+                            // Always put DeadZone FIRST or the scale will interfere.
+                            DeadZone::default(),
+                            Scale::splat(CONTROLLER_SENSITIVITY),
+                            Negate::y(),
+                            // DeltaScale is necessary because the stick affects
+                            // angular velocity, not the angle itself (unlike
+                            // when using the mouse).
+                            DeltaScale::default(),
+                        ))
                     )),
                 ),
                 (
