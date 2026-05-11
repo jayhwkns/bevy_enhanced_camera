@@ -10,7 +10,6 @@ const CONTROLLER_SENSITIVITY: f32 = 100.0;
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, EnhancedInputPlugin, EnhancedCameraPlugin))
-        .add_plugins(bevy_framepace::FramepacePlugin)
         .add_input_context::<CameraContext>()
         .add_systems(Startup, setup)
         .run();
@@ -20,7 +19,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut settings: ResMut<bevy_framepace::FramepaceSettings>,
 ) {
     // camera
     let camera = commands
@@ -34,6 +32,7 @@ fn setup(
                     Action::<RotateCamera>::new(),
                     Bindings::spawn((
                         Spawn((Binding::mouse_motion(), Scale::splat(MOUSE_SENSITIVITY))),
+                        // Sticks require some special handling.
                         Axial::right_stick().with((
                             // Always put DeadZone FIRST or the scale will interfere.
                             DeadZone::default(),
@@ -68,10 +67,6 @@ fn setup(
 
     // light
     commands.spawn((PointLight::default(), Transform::from_xyz(3.0, 8.0, 5.0)));
-
-    // frame-pace
-    use bevy_framepace::Limiter;
-    settings.limiter = Limiter::from_framerate(15.0);
 }
 
 /// For bevy_enhanced_input, a context must be defined.
