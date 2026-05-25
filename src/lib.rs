@@ -18,14 +18,11 @@ mod physics;
 /// The generic type is the [`ScheduleLabel`] at which the position is updated.
 /// The position is also updated whenever [`RotateCamera`] is fired (which
 /// occurs during [`Update`]). Hence, [`Update`] is the default label used.
-pub struct EnhancedCameraPlugin<L = Update>(L)
-where
-    L: ScheduleLabel,
-    L: Default;
+pub struct EnhancedCameraPlugin<L = Update>(L);
 
-impl<L: Default + ScheduleLabel> Default for EnhancedCameraPlugin<L> {
+impl Default for EnhancedCameraPlugin {
     fn default() -> Self {
-        Self(L::default())
+        Self(Update)
     }
 }
 
@@ -40,6 +37,12 @@ where
 
         #[cfg(feature = "cursor_utils")]
         app.add_plugins(cursor_utils::CursorUtilsPlugin);
+    }
+}
+
+impl<L: Default> EnhancedCameraPlugin<L> {
+    pub fn new() -> Self {
+        Self(L::default())
     }
 }
 
