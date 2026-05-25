@@ -1,5 +1,5 @@
 #![doc = include_str!("../README.md")]
-use bevy::prelude::*;
+use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
 use bevy_enhanced_input::prelude::*;
 
 #[cfg(feature = "physics")]
@@ -14,12 +14,29 @@ mod physics;
 /// Initializes camera control systems.
 ///
 /// Depends on EnhancedInputPlugin for observers to be triggered.
-pub struct EnhancedCameraPlugin;
+///
+/// The generic type is the [`ScheduleLabel`] at which the position is updated.
+/// The position is also updated whenever [`RotateCamera`] is fired (which
+/// occurs during [`Update`]). Hence, [`Update`] is the default label used.
+pub struct EnhancedCameraPlugin<L = Update>(L)
+where
+    L: ScheduleLabel,
+    L: Default;
 
-impl Plugin for EnhancedCameraPlugin {
+impl<L: Default + ScheduleLabel> Default for EnhancedCameraPlugin<L> {
+    fn default() -> Self {
+        Self(L::default())
+    }
+}
+
+impl<L> Plugin for EnhancedCameraPlugin<L>
+where
+    L: ScheduleLabel,
+    L: Default,
+{
     fn build(&self, app: &mut App) {
         app.add_observer(apply_rotation)
-            .add_systems(PreUpdate, move_cameras);
+            .add_systems(L::default(), move_cameras);
 
         #[cfg(feature = "cursor_utils")]
         app.add_plugins(cursor_utils::CursorUtilsPlugin);
