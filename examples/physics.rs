@@ -20,7 +20,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             EnhancedInputPlugin,
-            EnhancedCameraPlugin,
+            EnhancedCameraPlugin::default(),
             PhysicsPlugins::default(),
         ))
         .add_input_context::<CameraContext>()

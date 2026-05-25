@@ -14,9 +14,13 @@ const OFFSET: Vec3 = Vec3::new(0.0, 0.5, 1.0);
 fn main() {
     let mut app = App::new();
 
-    app.add_plugins((DefaultPlugins, EnhancedInputPlugin, EnhancedCameraPlugin))
-        .add_input_context::<CameraContext>()
-        .add_systems(Startup, setup);
+    app.add_plugins((
+        DefaultPlugins,
+        EnhancedInputPlugin,
+        EnhancedCameraPlugin::default(),
+    ))
+    .add_input_context::<CameraContext>()
+    .add_systems(Startup, setup);
 
     // When physics is disabled, camera rotation is immediately handled on
     // input and movement occurs on update, so motion will be smooth if player

@@ -9,7 +9,11 @@ const CONTROLLER_SENSITIVITY: f32 = 100.0;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, EnhancedInputPlugin, EnhancedCameraPlugin))
+        .add_plugins((
+            DefaultPlugins,
+            EnhancedInputPlugin,
+            EnhancedCameraPlugin::default(),
+        ))
         .add_input_context::<CameraContext>()
         .add_systems(Startup, setup)
         .run();
