@@ -25,7 +25,7 @@ const CONTROLLER_SENSITIVITY: f32 = 100.0;
 struct CameraContext;
 
 let mut app = App::new();
-app.add_plugins((EnhancedInputPlugin, EnhancedCameraPlugin))
+app.add_plugins((EnhancedInputPlugin, EnhancedCameraPlugin::default()))
     .add_input_context::<CameraContext>()
     .finish();
 
