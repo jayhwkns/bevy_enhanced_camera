@@ -90,4 +90,5 @@ physics disabled and let your character controller handle collisions.
 
 | bevy  | bevy_enhanced_camera |
 |-------|----------------------|
-| 0.18  | 0.1-0.3, main        |
+| 0.19  | 0.5, main            |
+| 0.18  | 0.1-0.3              |
